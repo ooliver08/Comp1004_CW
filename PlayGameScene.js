@@ -114,20 +114,14 @@ class PlayGameScene extends Phaser.Scene {
 	move_player(speed) {
 		let xDir = 0;
 		let yDir = 0;
-		//this.player.setVelocity(0);
-		if (yDir == 0) {
-			xDir = this.cursorKeys.right.isDown - this.cursorKeys.left.isDown;
-		}
-		if (xDir == 0) {
-			yDir = this.cursorKeys.down.isDown - this.cursorKeys.up.isDown;
-		}
+		
+		if (yDir == 0) {xDir = this.cursorKeys.right.isDown - this.cursorKeys.left.isDown;}
+		if (xDir == 0) {yDir = this.cursorKeys.down.isDown - this.cursorKeys.up.isDown;}
+		
 		this.player_anim(xDir, yDir);
 		
 		this.player.x += xDir * speed;
 		this.player.y += yDir * speed;
-		
-		//this.player.setVelocityX(xDir * speed);
-		//this.player.setVelocityY(yDir * speed);
 	}
 	
 	player_anim(xDir, yDir) {
