@@ -10,45 +10,22 @@ class PlayGameScene extends Phaser.Scene {
 		this.background = this.add.tileSprite(0, 20, this.scale.width, this.scale.height, "background");
 		this.background.setOrigin(0, 0);
 		
-		//-Enemies-//
-		this.spawn_enemy(this.enemy1 = this.add.sprite(this.scale.width + 10, 0, "enemy1"));
-		this.spawn_enemy(this.enemy2 = this.add.sprite(this.scale.width + 10, 0, "enemy2"));
-		this.spawn_enemy(this.enemy3 = this.add.sprite(this.scale.width + 10, 0, "enemy3"));
 		
+		//-Enemy-//
 		this.enemies = this.physics.add.group();
-		this.enemies.add(this.enemy1);
-		this.enemies.add(this.enemy2);
-		this.enemies.add(this.enemy3);
-		//Score
-		this.enemy1.score = 5;
-		this.enemy2.score = 10;
-		this.enemy3.score = 15;
-		//Health
-		this.enemy1.initHealth = 1;
-		this.enemy2.initHealth = 2;
-		this.enemy3.initHealth = 3;
-		this.enemy1.health = this.enemy1.initHealth;
-		this.enemy2.health = this.enemy2.initHealth;
-		this.enemy3.health = this.enemy3.initHealth;
-		//Animation
-		this.enemy1.play("enemy1_anim");
-		this.enemy2.play("enemy2_anim");
-		this.enemy3.play("enemy3_anim");
-
-		this.enemy1.setInteractive();
-		this.enemy2.setInteractive();
-		this.enemy3.setInteractive();
+		
 		
 		//-Player-//
 		this.player = this.physics.add.sprite(this.scale.width / 2, this.scale.height / 2, "player");
 		this.player.play("playerDown");
 		this.cursorKeys = this.input.keyboard.createCursorKeys();
 		this.player.setCollideWorldBounds(true);
-		
+		this.playerSpeed = 1.6;
+		this.playerInvincible = false;
+		this.firing = false;
+		this.fireDelay = 200;
 		this.spacebar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 		this.projectiles = this.add.group();
-		this.physics.add.overlap(this.player, this.enemies, this.damage_player, null, this);
-		this.physics.add.overlap(this.projectiles, this.enemies, this.damage_enemy, null, this);
 		
 
 		//-UI-//
@@ -72,49 +49,137 @@ class PlayGameScene extends Phaser.Scene {
 		this.livesLabel = this.add.bitmapText(420, 5, "pixelFont", "LIVES x ", 16);
 		this.livesLabel.text = "LIVES x " + this.lives;
 		
-		//this.start_wave();
+		
+		//-Wave-//
+		this.start_wave();
+		this.currentWave = 1;
+		this.enemiesKilledThisWave = 0;
+		this.enemiesPerWave = 10;
+		this.enemiesAlive = 0;
+		this.maxEnemiesAlive = 5;
+		this.waveInProgress = false;
 	}
 
 
 	update() {
 		//Enemy
-		this.move_enemy(this.enemy1, 1.5);
-		this.move_enemy(this.enemy2, 1.25);
-		this.move_enemy(this.enemy3, 1);
+		this.enemies.children.iterate((enemy) => {
+			if (enemy && enemy.active) {
+				this.move_enemy(enemy, enemy.speed + (0.05 * this.currentWave));
+			}
+		});
 		//Player
-		this.move_player(1.6);
+		this.move_player(this.playerSpeed);
 		
 		if (Phaser.Input.Keyboard.JustDown(this.spacebar)) {
 			this.player_shoot();
 		}
 	}
 	
-	/*
+	
 	//-Wave-//
 	start_wave() {
-		let enemiesPerWave = 10 * this.currentWave;
-		let enemiesSpawned = 0;
-		let enemiesLeftInWave = this.enemiesPerWave;
-		let spawnInterval = 500;
+		const enemyArr = ["enemy1", "enemy2", "enemy3"];
+		this.enemiesKilledThisWave = 0;
+		this.waveInProgress = true;
 		
-		this.time.addEvent({
-            delay: spawnInterval,
-            callback: this.spawn_wave_enemy(this.enemy3),
-            callbackScope: this,
-            repeat: enemiesPerWave - 1 //Spawn the total number of enemies
-        });
-    }
-	
-	spawn_wave_enemy(enemy) {
-		if (enemy == 
+		let spawnDelay = Math.max(1000 - (50 * this.currentWave), 100);
+		this.spawnTimer = this.time.addEvent({
+			delay: spawnDelay,
+			callback: () => {
+				if (this.enemiesAlive < this.maxEnemiesAlive && (this.enemiesKilledThisWave + this.enemiesAlive) < this.enemiesPerWave) {
+					const enemyType = Phaser.Math.RND.pick(enemyArr);
+					this.spawn_enemy(enemyType);
+				}
+			},
+			callbackScope: this,
+			loop: true
+		});
 	}
-	*/
+
+	spawn_enemy(enemyType) {
+		let enemy;
+		if (enemyType == "enemy1") {
+			enemy = this.physics.add.sprite(0, 0, "enemy1");
+			enemy.score = 5;
+			enemy.initHealth = 1;
+			enemy.speed = 1.5;
+		} 
+		else if (enemyType == "enemy2") {
+			enemy = this.physics.add.sprite(0, 0, "enemy2");
+			enemy.score = 10;
+			enemy.initHealth = 2;
+			enemy.speed = 1.25;
+		} 
+		else if (enemyType == "enemy3") {
+			enemy = this.physics.add.sprite(0, 0, "enemy3");
+			enemy.score = 15;
+			enemy.initHealth = 3;
+			enemy.speed = 1;
+		}
+		else {return;}
+		
+		enemy.health = enemy.initHealth; //Set enemy health
+		enemy.play(`${enemyType}_anim`); //Set enemy animation
+		
+		//Spawn enemy
+		enemy.x = Math.random() < 0.5 ? 0 : this.scale.width; //Spawn from left or right side of screen
+		enemy.y = Math.random() * (this.scale.height - 20); //Set random y value
+		this.enemies.add(enemy);
+		
+		//Add overlap detection
+		this.physics.add.overlap(this.player, enemy, this.damage_player, null, this);
+		this.physics.add.overlap(this.projectiles, enemy, this.damage_enemy, null, this);
+		
+		this.enemiesAlive++;
+	}
+
+	wave_clear_message() {
+		let message = this.add.bitmapText(this.scale.width / 2, this.scale.height / 2, "pixelFont", "-Wave Cleared-", 32)
+
+		message.setOrigin(0.5);
+		message.setDepth(10); //Ensure it's above other elements
+		message.setAlpha(0);  //Start invisible
+
+		//Fade in
+		this.tweens.add({
+			targets: message,
+			alpha: 1,
+			duration: 500,
+			yoyo: true,
+			hold: 1500,
+			onComplete: () => message.destroy()
+		});
+	}
+
+	end_wave() {
+		this.wave_clear_message()
+		
+		this.waveInProgress = false;
+		this.spawnTimer.remove(); //Stop spawning
+		
+		this.currentWave++;
+		this.waveLabel.text = "WAVE " + this.currentWave;
+		
+		//Increase difficulty
+		this.enemiesPerWave += 5;
+		this.maxEnemiesAlive++;
+		
+		//Short delay before next wave starts
+		this.time.addEvent({
+			delay: 3000,
+			callback: () => {
+				this.start_wave();
+			},
+			callbackScope: this
+		});
+	}
 	
 	//--Player--//
 	move_player(speed) {
 		let xDir = 0;
 		let yDir = 0;
-		
+		//Player can only move in 4 directions
 		if (yDir == 0) {xDir = this.cursorKeys.right.isDown - this.cursorKeys.left.isDown;}
 		if (xDir == 0) {yDir = this.cursorKeys.down.isDown - this.cursorKeys.up.isDown;}
 		
@@ -133,20 +198,24 @@ class PlayGameScene extends Phaser.Scene {
 	}
 	
 	player_shoot(){
+		if (this.firing) {return;}
+		this.firing = true;
+		
 		var bullet = new Bullet(this);
 		this.projectiles.add(bullet);
+		
+		this.time.delayedCall(this.fireDelay, () =>{
+			this.firing = false;
+		});
 	}
 	
 	damage_player(player, enemy) {
-		this.spawn_enemy(enemy);
+		if (this.invincible) {return;}
+		this.invincible = true;
+		
 		//Subtract player health and check if player is dead
 		if (--this.health <= 0) {
-			//Update and display score
-			if (this.score >= 100) {this.score -= 100;}
-			else if (this.score < 100) {this.score = 0;}
-			this.scoreLabel.text = "SCORE " + this.score;
-			
-			//Subtract player life if health reaches 0
+			//Subtract player life if health reaches 0 and has lives remaining
 			if (--this.lives <= 0) {
 				this.registry.set("score", this.score);
 				this.scene.start("gameOver");
@@ -155,7 +224,7 @@ class PlayGameScene extends Phaser.Scene {
 			this.livesLabel.text = "LIVES x " + this.lives;
 			var death = new Death(this, player.x, player.y);
 			player.disableBody(true, true);
-			
+			//Reset player position
 			this.time.addEvent({
 				delay: 1000,
 				callback: this.reset_player,
@@ -163,14 +232,26 @@ class PlayGameScene extends Phaser.Scene {
 				loop: false
 			});
 		}
-		//Update health display
-		this.healthLabel.text = "HEALTH " + this.health;
+		
+		this.healthLabel.text = "HEALTH " + this.health; //Update health display
+		
+		//Player flashes to indicate invincibility
+		this.tweens.add({
+			targets: player,
+			alpha: 0.5,
+			duration: 200,
+			repeat: 5,
+			yoyo: true,
+			onComplete: () => {
+				player.setAlpha(1);
+				this.invincible = false;
+			}
+		});
 	}
 	
 	reset_player() {
-		//Reset player co-ordinates
-		this.player.enableBody(true, this.scale.width / 2, this.scale.height / 2, true, true);
-		//Set player health
+		this.player.enableBody(true, this.scale.width / 2, this.scale.height / 2, true, true); //Reset player co-ordinates
+		//Set and display player health
 		this.health = 3;
 		this.healthLabel.text = "HEALTH " + this.health;
 	}
@@ -207,20 +288,20 @@ class PlayGameScene extends Phaser.Scene {
 		enemy.y += yDir * speed;
 	}
 	
-	
-	spawn_enemy(enemy) {
-		enemy.x = Math.random() < 0.5 ? 0 : this.scale.width; //Spawn from left or right side of screen
-		enemy.y = Math.random() * this.scale.height; //Set random y value
-	}
-	
 	damage_enemy(projectile, enemy) {
 		projectile.destroy();
-		if (--enemy.health <= 0){
+		if (--enemy.health <= 0) {
 			var death = new Death(this, enemy.x, enemy.y);
-			this.spawn_enemy(enemy);
-			enemy.health = enemy.initHealth;
+			enemy.destroy(); //Permanently remove
+			this.enemiesAlive--;
+			this.enemiesKilledThisWave++;
 			this.score += enemy.score;
 			this.scoreLabel.text = "SCORE " + this.score;
+			
+			//Check if wave completed
+			if (this.enemiesKilledThisWave >= this.enemiesPerWave) {
+				this.end_wave();
+			}
 		}
 	}
 }
