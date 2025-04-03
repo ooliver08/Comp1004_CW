@@ -160,6 +160,14 @@ class PlayGameScene extends Phaser.Scene {
 		
 		this.currentWave++;
 		this.waveLabel.text = "WAVE " + this.currentWave;
+		//Heal Player
+		if (this.currentWave % 2 == 0) {
+			this.health++;
+			this.healthLabel.text = "HEALTH " + this.health;
+		}
+		//Increase Fire Rate
+		this.fireDelay = Math.max(this.fireDelay - 5, 100);
+		
 		
 		//Increase difficulty
 		this.enemiesPerWave += 5;
